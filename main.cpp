@@ -29,16 +29,25 @@ public:
         // TODO:
         // 1. 若 parent[x] != x，遞迴尋找根
         // 2. 可加入 path compression
+        if(parent[x] != x) parent[x] = find(parent[x]);
         // 3. 回傳集合代表元
-        return x; // 請修改
+        return parent[x]; // 請修改
     }
 
     bool unite(int a, int b) {
         // TODO:
         // 1. 找 a, b 的根
+        int rootA = find(a);
+        int rootB = find(b);
+
         // 2. 若相同代表已在同一集合，回傳 false
+        if (rootA ==rootB) return false;
+
         // 3. 否則合併兩集合，回傳 true
-        return false; // 請修改
+        if (rankv[rootA] < rankv[rootB])      parent[rootA] = rootB;
+        else if (rankv[rootA] > rankv[rootB]) parent[rootB] = rootA;
+        else                                  parent[rootB] = rootA, rankv[rootA]++;
+        return true; // 請修改
     }
 };
 
@@ -72,17 +81,35 @@ void kruskalMST(int n, vector<Edge> edges) {
 
     // TODO:
     // Step 1. 將 edges 依照權重由小到大排序
-
+    sort(edges.begin(), edges.end(),[](const Edge& a, const Edge& b){
+         return a.w < b.w;
+    });
+    
     // TODO:
     // Step 2. 建立 DSU 物件
+    DSU dsu(n);
 
     cout << "Selection steps:\n";
 
     // TODO:
     // Step 3. 逐一檢查排序後的每條邊
+    for (auto& e : edges){
     //   - 若加入後不形成 cycle，則選入 mst
+    if (dsu.unite(e.u, e.v)){
+        mst.push_back(e);
+        cout << "pick: ";
+        printEdge(e);
+        cout << '\n';
+    }
     //   - 否則略過
+    else{
+        cout << "Skip ";
+        printEdge(e);
+        cout << "(cycle)\n";
+    }
     //   - 當 mst.size() == n - 1 時停止
+    if (mst.size() == n-1) break;
+}
 
     printMST(mst);
     cout << "\n";
@@ -109,13 +136,41 @@ void primMST(int n, const vector<vector<pair<int, int>>>& adj, int start = 1) {
 
     // TODO:
     // Step 1. 將起點 start 設為已加入 MST
+inMST[start] = true;
 
+    for (auto& [to, w] : adj[start]) {
+        pq.push({w, start, to});
+    }
     // TODO:
     // Step 2. 把 start 相鄰的邊放入 priority queue
 
     cout << "Selection steps:\n";
 
     // TODO:
+    while (!pq.empty() && mst.size() < n - 1) {
+        auto [w, u, v] = pq.top();
+        pq.pop();
+
+        if (inMST[v]) {
+            cout << "Skip ";
+            printEdge({u, v, w});
+            cout << " (visited)\n";
+            continue;
+        }
+
+        inMST[v] = true;
+        mst.push_back({u, v, w});
+
+        cout << "pick: ";
+        printEdge({u, v, w});
+        cout << "\n";
+
+        for (auto& [to, weight] : adj[v]) {
+            if (!inMST[to]) {
+                pq.push({weight, v, to});
+            }
+        }
+    }
     // Step 3. 當 pq 不為空且 mst 邊數 < n-1
     //   - 取出最小邊
     //   - 若 to 已在 MST 中，跳過
@@ -135,6 +190,7 @@ void boruvkaMST(int n, const vector<Edge>& edges) {
     cout << "==============================\n";
 
     vector<Edge> mst;
+    DSU dsu(n);
 
     // TODO:
     // Step 1. 建立 DSU
@@ -150,6 +206,20 @@ void boruvkaMST(int n, const vector<Edge>& edges) {
         vector<int> cheapest(n + 1, -1);
 
         // TODO:
+          for (int i = 0; i < edges.size(); i++) {
+            int set1 = dsu.find(edges[i].u);
+            int set2 = dsu.find(edges[i].v);
+
+            if (set1 == set2) continue;
+
+            if (cheapest[set1] == -1 ||
+                edges[i].w < edges[cheapest[set1]].w)
+                cheapest[set1] = i;
+
+            if (cheapest[set2] == -1 ||
+                edges[i].w < edges[cheapest[set2]].w)
+                cheapest[set2] = i;
+        }
         // Step 3. 掃描所有邊，對每個 component 找 cheapest edge
         // 提示：
         //   set1 = find(edges[i].u)
@@ -160,6 +230,26 @@ void boruvkaMST(int n, const vector<Edge>& edges) {
         bool merged = false;
 
         // TODO:
+        for (int i = 1; i <= n; i++) {
+            if (cheapest[i] != -1) {
+                Edge e = edges[cheapest[i]];
+
+                int set1 = dsu.find(e.u);
+                int set2 = dsu.find(e.v);
+
+                if (set1 == set2) continue;
+
+                dsu.unite(set1, set2);
+                mst.push_back(e);
+                numComponents--;
+                merged = true;
+
+                cout << "pick: ";
+                printEdge(e);
+                cout << "\n";
+            }
+        }
+
         // Step 4. 將每個 component 找到的 cheapest edge 嘗試加入 MST
         //   - 若兩端點屬於不同 component，則合併
         //   - 加入 mst
